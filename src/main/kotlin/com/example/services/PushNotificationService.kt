@@ -19,22 +19,22 @@ data class Message(
 
 @Serializable
 data class MessageContent(
-    val token: String,
+    val token: String?,
     val notification: Notification,
     val data: Data
 )
 
 @Serializable
 data class Notification(
-    val title: String,
-    val body: String
+    val title: String?,
+    val body: String?
 )
 
 @Serializable
 data class Data(
-    val showAlert: String,
-    val customKey1: String,
-    val customKey2: String
+    val showAlert: String?,
+    val customKey1: String?,
+    val customKey2: String?
 )
 
 object PushNotificationService {
@@ -66,13 +66,13 @@ object PushNotificationService {
         }
     }
 
-    suspend fun sendPushNotification(deviceId: String, topic: String, body: String, k1: String, k2: String, showAlert: Boolean): Boolean {
+    suspend fun sendPushNotification(pushId: String?, topic: String?, body: String?, k1: String?, k2: String?, showAlert: Boolean): Boolean {
         val token = getBearerToken()
         logger.info("Sending push notification")
 
         val messageContent = Message(
             message = MessageContent(
-                token = deviceId,
+                token = pushId,
                 notification = Notification(
                     title = topic,
                     body = body
