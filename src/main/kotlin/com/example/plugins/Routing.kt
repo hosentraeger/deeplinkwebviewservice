@@ -12,6 +12,13 @@ import io.ktor.server.request.*
 import kotlinx.html.* // HTML DSL für dynamisches HTML
 import kotlinx.coroutines.runBlocking
 
+fun formatPushId(pushId: String): String {
+    return if (pushId.length > 16) {
+        "${pushId.substring(0, 16)}****"
+    } else {
+        pushId
+    }
+}
 
 fun Application.configureRouting() {
     routing {
@@ -72,6 +79,19 @@ fun Application.configureRouting() {
                                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
                                 document.querySelector('input[name="title"]').value = randomKey;
                                 document.querySelector('input[name="topic"]').value = titleTopicPairs[randomKey];
+                            }
+                            function randomizeIAM() {
+                                console.log("randomizeIAM called");
+                                const iamCustomerIds = [
+                                  "7561469993",
+                                  "9493366586",
+                                  "1983068231",
+                                  "7561469993"
+                                ]
+                                const randomIndex = Math.floor(Math.random() * iamCustomerIds.length);
+                                const randomId = iamCustomerIds[randomIndex]; // Zufälligen Wert aus dem Array abrufen
+                                document.querySelector('input[name="key1"]').value = "IAM"; // key1 auf "IAM" setzen
+                                document.querySelector('input[name="key2"]').value = randomId; // key2 auf den zufälligen Wert setzen
                             }
                             function sendPushNotification() {
                                 const form = document.querySelector("#push-form");
@@ -145,32 +165,52 @@ fun Application.configureRouting() {
                                     disabled = true
                                     +"Senden"
                                 }
-                                button {
-                                    style = "margin: 10px;" // Add some spacing around the button
-                                    type = ButtonType.button
-                                    onClick = "document.getElementById('overlay').style.display='none';"
-                                    +"Abbrechen"
+                                button(type = ButtonType.button) {
+                                    style = "margin: 10px;"
+                                    onClick = """
+                                        console.log('Zufällige Ansprache button clicked');
+                                        document.querySelector('input[name="useTitleAndText"]').checked = true;
+                                        const title = document.querySelector('input[name="title"]');
+                                        const topic = document.querySelector('input[name="topic"]');
+                                        title.disabled = false;
+                                        topic.disabled = false;
+                                        randomizeMessage();
+                                        checkSendButton();
+                                    """
+                                    +"Zufällige Ansprache"
+                                }
+                                button(type = ButtonType.button) {
+                                    style = "margin: 10px;"
+                                    onClick = """
+                                        console.log('Zufällige IAM button clicked');
+                                        document.querySelector('input[name="useAdditionalData"]').checked = true;
+                                        const key1 = document.querySelector('input[name="key1"]');
+                                        const key2 = document.querySelector('input[name="key2"]');
+                                        key1.disabled = false;
+                                        key2.disabled = false;
+                                        randomizeIAM();
+                                        checkSendButton();
+                                    """
+                                    +"Zufällige IAM"
                                 }
                                 button(type = ButtonType.button) {
                                     style = "margin: 10px;" // Add some spacing around the button
                                     onClick = """
                                         document.querySelector('input[name="title"]').value = '';
                                         document.querySelector('input[name="topic"]').value = '';
-                                        document.querySelector('textarea[name="key1"]').value = '';
-                                        document.querySelector('textarea[name="key2"]').value = '';
+                                        document.querySelector('input[name="key1"]').value = '';
+                                        document.querySelector('input[name="key2"]').value = '';
                                         document.querySelector('input[name="useTitleAndText"]').checked = false;
                                         document.querySelector('input[name="useAdditionalData"]').checked = false;
                                         checkSendButton();
                                     """
                                     +"Inhalte löschen"
                                 }
-                                button(type = ButtonType.button) {
-                                    style = "margin: 10px;"
-                                    onClick = """
-                                        console.log('Zufällige Ansprache button clicked');
-                                        randomizeMessage();
-                                    """
-                                    +"Zufällige Ansprache"
+                                button {
+                                    style = "margin: 10px;" // Add some spacing around the button
+                                    type = ButtonType.button
+                                    onClick = "document.getElementById('overlay').style.display='none';"
+                                    +"Abbrechen"
                                 }
                             }
                         }
@@ -206,7 +246,7 @@ fun Application.configureRouting() {
                             deviceDataList.forEach { deviceData ->
                                 tr {
                                     td { +deviceData.device_id }
-                                    td { +deviceData.push_id }
+                                    td { +formatPushId(deviceData.push_id) } 
                                     td { +deviceData.login_id }
                                     td { +deviceData.last_login.toString() }
                                     td {
@@ -217,7 +257,7 @@ fun Application.configureRouting() {
                                                 document.querySelector('input[name="device_id"]').value='${deviceData.device_id}';
                                                 document.querySelector('input[name="push_id"]').value='${deviceData.push_id}';
                                             """
-                                            +"Send Push"
+                                            +"Send"
                                         }
                                     }
                                     td {
@@ -250,6 +290,12 @@ fun Application.configureRouting() {
             val key1 = if (useAdditionalData) parameters["key1"] else null
             val key2 = if (useAdditionalData) parameters["key2"] else null
 
+            // Überprüfe, ob pushId null ist
+            if (pushId == null) {
+                call.respond(HttpStatusCode.BadRequest, "Push ID cannot be null")
+                return@post // Beende die Ausführung, falls pushId null ist
+            }
+    
             if (title == null && topic == null && key1 == null && key2 == null) {
                 call.respond(HttpStatusCode.BadRequest, "At least one field must be filled!")
                 return@post
@@ -260,8 +306,7 @@ fun Application.configureRouting() {
                 topic = title,
                 body = topic,
                 k1 = key1,
-                k2 = key2,
-                showAlert = true
+                k2 = key2
             )
             if (success) {
                 call.respond(HttpStatusCode.OK, mapOf("status" to "success", "message" to "Push notification sent successfully!"))
