@@ -73,6 +73,29 @@ fun Application.configureRouting() {
                                 document.querySelector('input[name="title"]').value = randomKey;
                                 document.querySelector('input[name="topic"]').value = titleTopicPairs[randomKey];
                             }
+                            function sendPushNotification() {
+                                const form = document.querySelector("#push-form");
+                                const formData = new FormData(form);
+
+                                fetch("/send-push", {
+                                    method: "POST",
+                                    body: formData
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.status === "success") {
+                                        document.getElementById("overlay-message").innerText = data.message;
+                                        document.getElementById("status-overlay").style.display = "block";
+                                    } else {
+                                        alert("Error: " + data.message);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Error:", error);
+                                });
+
+                                return false; // Prevent form from submitting the normal way
+                            }
                             """.trimIndent())
                         }
                     }
@@ -86,7 +109,9 @@ fun Application.configureRouting() {
                         style = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);"
                         div {
                             style = "background-color: white; padding: 20px; margin: 100px auto; width: 300px;"
-                            form(action = "/send-push", method = FormMethod.post) {
+                            form {
+                                attributes["id"] = "push-form"
+                                attributes["onsubmit"] = "return sendPushNotification();"
                                 hiddenInput(name = "device_id") { value = "" }  // Wird dynamisch gesetzt
                                 textInput(name = "push_id") { placeholder = "Push ID" }  // Befüllt durch JavaScript
                                 checkBoxInput(name = "useTitleAndText") {
@@ -236,29 +261,14 @@ fun Application.configureRouting() {
                 body = topic,
                 k1 = key1,
                 k2 = key2,
-                showAlert = true // Beispielwert, je nach Logik anpassen
+                showAlert = true
             )
-            // Overlay für Erfolg oder Misserfolg anzeigen
             if (success) {
-                // Optionally, you could also update the overlay message content
-                call.respond(HttpStatusCode.OK, "Push notification sent successfully!")
-                // Consider updating the overlay message display logic
-                call.respondHtml(HttpStatusCode.OK) {
-                    body {
-                        script {
-                            unsafe {
-                                raw("""
-                                document.getElementById('status-overlay').style.display='block';
-                                document.getElementById('overlay-message').innerText='Push notification sent successfully!';
-                                """.trimIndent())
-                            }
-                        }
-                    }
-                }
+                call.respond(HttpStatusCode.OK, mapOf("status" to "success", "message" to "Push notification sent successfully!"))
             } else {
-                call.respond(HttpStatusCode.InternalServerError, "Failed to send push notification.")
+                call.respond(HttpStatusCode.InternalServerError, mapOf("status" to "error", "message" to "Failed to send push notification."))
             }
-        }
+    }
         post("/delete-device") {
           val deviceId = call.receiveParameters()["device_id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
           Database.deleteDeviceData(deviceId)
