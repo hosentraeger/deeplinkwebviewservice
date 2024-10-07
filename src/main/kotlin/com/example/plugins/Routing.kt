@@ -271,8 +271,19 @@ fun Application.configureRouting() {
                         }
                     }
                     footer {
+                        style = "display: flex; align-items: center; justify-content: center; margin-top: 10px;"
+
                         a(href = "/static/app-debug.apk") {
                             +"Download APK"
+                        }
+
+                        // Trenner
+                        span {
+                            style = "margin: 0 10px; border-left: 1px solid #ccc; height: 20px; align-self: center;"
+                        }
+
+                        a(href = "/deeplinks.html") {
+                            +"Deeplinks"
                         }
                     }
                 }
