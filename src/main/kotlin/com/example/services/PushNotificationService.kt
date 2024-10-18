@@ -91,7 +91,7 @@ object PushNotificationService {
     val messageContent = Message(
         message = MessageContent(
             token = pushId,
-            notification = notification,
+            notification = if ( topic=="" && body=="") null else notification,
             data = data
         )
     )
