@@ -191,6 +191,10 @@ fun Application.configureRouting() {
                     td { textInput(name = "body") { placeholder = "Body"; style = "margin: 10px; width: calc(100% - 20px);" } }
                   }
                   tr {
+                    td { label { +"als Android-Benachrichtigung" } }
+                    td { checkBoxInput { name = "payloadAsNotification" } }
+                  }
+                  tr {
                     td { p { +"" } }
                     td {
                       button(type = ButtonType.button) {
@@ -241,20 +245,34 @@ fun Application.configureRouting() {
                       }
                     }
                     tr {
-                      td { label { +"Event ID:" } }
-                      td { textInput { name = "eventId"; style = "margin: 10px; width: calc(100% - 20px);" } }
+                      td {
+                        label { +"Benachrichtigungsgrafik:" }
+                      }
+                      td {
+                        select {
+                          name = "notificationImageSelect"
+                          id = "notificationImageSelect"
+                          option { value = "0"; +"keine Grafik" }
+                          option { value = "1"; +"Übersichtsbanner" }
+                          option { value = "2"; +"Erfolgsbanner" }
+                          option { value = "3"; +"Störer" }
+                          option { value = "4"; +"Logout-Seite" }
+                        }
+                      }
                     }
                     tr {
-                      td { label { +"URI:" } }
-                      td { textInput { name = "uri"; style = "margin: 10px; width: calc(100% - 20px);" } }
-                    }
-                    tr {
-                      td { label { +"Use Banner:" } }
-                      td { checkBoxInput { name = "useBanner" } }
-                    }
-                    tr {
-                      td { label { +"Show Disrupter:" } }
-                      td { checkBoxInput { name = "showDisrupter" } }
+                      td {
+                        label { +"Overlaygrafik:" }
+                      }
+                      td {
+                        select {
+                          name = "overlayImageSelect"
+                          id = "overlayImageSelect"
+                          option { value = "0"; +"keine Grafik" }
+                          option { value = "3"; +"Störer" }
+                          option { value = "4"; +"Logout-Seite" }
+                        }
+                      }
                     }
                   }
                 }
@@ -266,19 +284,19 @@ fun Application.configureRouting() {
                   table {
                     tr {
                       td {
-                          label { +"WebView Path:" }
+                        label { +"WebView Path:" }
                       }
                       td {
-                          select {
-                              name = "webviewUrlIdSelect"
-                              id = "webviewUrlIdSelect"
-                              webviewUrls.forEach { (key, _) ->
-                                  option {
-                                      value = key
-                                      +key
-                                  }
-                              }
+                        select {
+                          name = "webviewUrlIdSelect"
+                          id = "webviewUrlIdSelect"
+                          webviewUrls.forEach { (key, _) ->
+                            option {
+                              value = key
+                              +key
+                            }
                           }
+                        }
                       }
                     }
                   }
@@ -335,21 +353,6 @@ fun Application.configureRouting() {
                   style = "margin: 10px; width: calc(100% - 20px);"
                   disabled = false
                   +"Senden"
-                }
-
-                // Löschen-Button
-                button(type = ButtonType.button) {
-                  style = "margin: 10px; width: calc(100% - 20px);"
-                  onClick = """
-                    document.querySelector('input[name="title"]').value = '';
-                    document.querySelector('input[name="body"]').value = '';
-                    document.querySelector('input[name="key1"]').value = '';
-                    document.querySelector('input[name="key2"]').value = '';
-                    document.querySelector('input[name="useTitleAndText"]').checked = false;
-                    document.querySelector('input[name="useAdditionalData"]').checked = false;
-                    checkSendButton();
-                  """
-                  +"Inhalte löschen"
                 }
 
                 // Abbrechen-Button
@@ -450,7 +453,7 @@ fun Application.configureRouting() {
               style = "margin: 0 10px; border-left: 1px solid #ccc; height: 20px; align-self: center;"
             }
 
-            a(href = "/deeplinks.html") {
+            a(href = "/deeplinkr/index.html") {
               +"Deeplinks"
             }
           }
@@ -472,6 +475,7 @@ fun Application.configureRouting() {
       val obv = parameters["obv"]
       val title = parameters["title"]
       val body = parameters["body"]
+      val payloadAsNotification = parameters["payloadAsNotification"]?.let { it == "on" } ?: false
       val notificationType = parameters["structure"]
       var payload = """
           {
@@ -489,8 +493,8 @@ fun Application.configureRouting() {
           
           val eventId = parameters["eventId"]
           val uri = parameters["uri"]
-          val useBanner = parameters["useBanner"]?.let { it == "on" } ?: false
-          val showDisrupter = parameters["showDisrupter"]?.let { it == "on" } ?: false
+          val notificationImage = parameters["notificationImageSelect"]
+          val overlayImage = parameters["overlayImageSelect"]
           payload = """
               {
                   "blz": "$blz",
@@ -501,8 +505,8 @@ fun Application.configureRouting() {
                       "contentId": "$contentId",
                       "eventId": "$eventId",
                       "uri": "$uri",
-                      "useBanner": $useBanner,
-                      "showDisrupter": $showDisrupter
+                      "notificationImage": "$notificationImage",
+                      "overlayImage": "$overlayImage"
                   }
               }
           """.trimIndent()
@@ -594,8 +598,8 @@ fun Application.configureRouting() {
       // Push Notification Logik
       val success = PushNotificationService.sendPushNotification(
         pushId = pushId,
-        topic = "",
-        body = "",
+        topic = if ( payloadAsNotification ) title else "",
+        body = if ( payloadAsNotification ) body else "",
         k1 = encodedPayload,
         k2 = null
       )

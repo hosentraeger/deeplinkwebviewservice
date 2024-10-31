@@ -17,26 +17,23 @@ object Database {
 
     private val logger: Logger = LoggerFactory.getLogger("Application")
 
+    private fun getConnection(): Connection {
+        if (connection == null || connection!!.isClosed) {
+            logger.error("Database connection null, re-creating")
+            connection = DriverManager.getConnection(jdbcUrl, dbUser, dbPassword)
+        }
+        return connection!!
+    }
+    
     fun init() {
       val logger: Logger = LoggerFactory.getLogger("Application")
-      try {
-        if (connection == null || connection!!.isClosed) {
-            connection = DriverManager.getConnection(jdbcUrl, dbUser, dbPassword)
-            logger.info("Database connection established")
-        }
-      } catch (e: SQLException) {
-        logger.error("Failed to initialize database connection: ${e.message}")
-        throw e
-      }
     }
+    
     // Speichere oder aktualisiere DeviceData in der Datenbank
     fun saveDeviceData(deviceData: DeviceData) {
         logger.info("Saving device data: $deviceData")
 
-        if (connection == null) {
-          logger.error("Database connection null, re-creating")
-          connection = DriverManager.getConnection(jdbcUrl, dbUser, dbPassword)
-        }
+        val conn = getConnection()
 
         val query = """
             INSERT INTO device_data (device_id, push_id, login_id, last_login)
@@ -49,13 +46,13 @@ object Database {
         val formattedTimestamp = LocalDateTime.parse(deviceData.last_login, DateTimeFormatter.ISO_DATE_TIME)
         logger.info("Formatted Timestamp: $formattedTimestamp")
 
-        connection?.prepareStatement(query)?.apply {
+        conn?.prepareStatement(query)?.apply {
             setString(1, deviceData.device_id)
             setString(2, deviceData.push_id)
             setString(3, deviceData.login_id)
             setTimestamp(4, java.sql.Timestamp.valueOf(formattedTimestamp))
             executeUpdate()
-        } ?: logger.error("Failed to save device data due to null connection")
+        } ?: logger.error("Failed to save device data due to null conn")
     }
 
     // Hole alle DeviceData-Einträge aus der Datenbank
@@ -64,7 +61,9 @@ object Database {
         val query = "SELECT device_id, push_id, login_id, last_login FROM device_data"
         val deviceDataList = mutableListOf<DeviceData>()
 
-        connection?.prepareStatement(query)?.use { statement ->
+        val conn = getConnection()
+
+        conn?.prepareStatement(query)?.use { statement ->
             val resultSet = statement.executeQuery()
             while (resultSet.next()) {
                 val deviceData = DeviceData(
@@ -75,7 +74,7 @@ object Database {
                 )
                 deviceDataList.add(deviceData)
             }
-        } ?: logger.error("Failed to fetch device data due to null connection")
+        } ?: logger.error("Failed to fetch device data due to null conn")
 
         return deviceDataList
     }
@@ -84,8 +83,8 @@ object Database {
     fun getDeviceDataById(deviceId: String): DeviceData? {
         logger.info("Fetching device data for device_id: $deviceId")
         val query = "SELECT device_id, push_id, login_id, last_login FROM device_data WHERE device_id = ?"
-
-        connection?.prepareStatement(query)?.use { statement ->
+        val conn = getConnection()
+        conn?.prepareStatement(query)?.use { statement ->
             statement.setString(1, deviceId)
             val resultSet = statement.executeQuery()
             if (resultSet.next()) {
@@ -96,16 +95,16 @@ object Database {
                     last_login = resultSet.getString("last_login")
                 )
             }
-        } ?: logger.error("Failed to fetch device data for $deviceId due to null connection")
+        } ?: logger.error("Failed to fetch device data for $deviceId due to null conn")
 
         return null
     }
     fun deleteDeviceData(deviceId: String): Boolean {
         logger.info("Deleting device data for device_id: $deviceId")
         val query = "DELETE FROM device_data WHERE device_id = ?"
-
+        val conn = getConnection()
         return try {
-            connection?.prepareStatement(query)?.use { statement ->
+            conn?.prepareStatement(query)?.use { statement ->
                 statement.setString(1, deviceId)
                 val rowsAffected = statement.executeUpdate()
                 if (rowsAffected > 0) {
@@ -116,7 +115,7 @@ object Database {
                     false
                 }
             } ?: run {
-                logger.error("Failed to delete device data for $deviceId due to null connection")
+                logger.error("Failed to delete device data for $deviceId due to null conn")
                 false
             }
         } catch (e: SQLException) {
